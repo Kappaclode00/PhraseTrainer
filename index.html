@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Phrase Trainer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%230f766e'/%3E%3Crect x='96' y='120' width='320' height='224' rx='48' fill='white'/%3E%3Cpath d='M176 330v90l94-85z' fill='white'/%3E%3Ccircle cx='190' cy='232' r='24' fill='%230f766e'/%3E%3Ccircle cx='256' cy='232' r='24' fill='%230f766e'/%3E%3Ccircle cx='322' cy='232' r='24' fill='%230f766e'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%230f766e'/%3E%3Crect x='96' y='120' width='320' height='224' rx='48' fill='white'/%3E%3Cpath d='M176 330v90l94-85z' fill='white'/%3E%3Ccircle cx='190' cy='232' r='24' fill='%230f766e'/%3E%3Ccircle cx='256' cy='232' r='24' fill='%230f766e'/%3E%3Ccircle cx='322' cy='232' r='24' fill='%230f766e'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f7f7f4;--card:#fff;--ink:#1c1c1a;--mut:#6b6b66;--acc:#0f766e;--accInk:#fff;--bad:#b42318;--ok:#067647;--line:#e3e3dd;--okbg:#e8f6ee;--badbg:#fdecea}
+@media(prefers-color-scheme:dark){:root{--bg:#121413;--card:#1b1e1c;--ink:#ecece8;--mut:#9a9a94;--acc:#2dd4bf;--accInk:#06201c;--bad:#f97066;--ok:#47cd89;--line:#2a2e2b;--okbg:#10261c;--badbg:#2b1513}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+#app{max-width:560px;margin:0 auto;padding:14px 14px 40px}
+h1{font-size:1.3rem;margin:4px 0 10px}h2{font-size:1.5rem;margin:6px 0 10px}h3{font-size:1rem;margin:18px 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.big{padding:20px}
+.mut{color:var(--mut);font-size:.9rem}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.top{display:flex;justify-content:space-between;align-items:center}
+button{font:inherit;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;cursor:pointer}
+button.pri{background:var(--acc);color:var(--accInk);border-color:var(--acc);font-weight:600}
+button.ghost{background:transparent}
+button.ico{padding:2px 8px;border-radius:8px}
+button[disabled]{opacity:.45;cursor:not-allowed}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip{border-radius:999px;padding:6px 14px}
+.chip.on{background:var(--acc);color:var(--accInk);border-color:var(--acc);font-weight:600}
+input,select,textarea{font:inherit;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);margin:4px 0}
+textarea{min-height:130px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85rem}
+label{font-size:.85rem;color:var(--mut);display:block;margin-top:8px}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:8px 0 4px}
+.bar>i{display:block;height:100%;background:var(--acc)}
+.fb{border-radius:12px;padding:12px;margin:10px 0}
+.fb.ok{background:var(--okbg);border:1px solid var(--ok)}
+.fb.bad{background:var(--badbg);border:1px solid var(--bad)}
+.ans{font-size:1.25rem;font-weight:600;margin:4px 0}
+.flash{text-align:center;min-height:170px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.flash .t{font-size:1.6rem;font-weight:700}
+.list .it{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.list .it:last-child{border:0}
+.lock{color:var(--mut)}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(()=>{
+"use strict";
+const LANGS={de:{n:'German',tts:'de-DE'},nl:{n:'Dutch',tts:'nl-NL'},fr:{n:'French',tts:'fr-FR'},es:{n:'Spanish',tts:'es-ES'}};
+const GAPS=[0,1,3,7,14,30],DAY=864e5,KEY='phrase_trainer_v1',MASTER_BOX=2;
+// seed rows: target|english|article|example|example_en|note
+const SEED={
+de:[
+['Pack 1: Everyday basics','basics',`Guten Morgen!|Good morning!|||| Like Italian "buongiorno" (morning)
+Guten Tag!|Good day! / Hello!||||
+Guten Abend!|Good evening!||||
+Wie geht's?|How are you?||||Informal. Formal: Wie geht es Ihnen?
+Gut, danke. Und dir?|Fine, thanks. And you?||||
+Ich verstehe nicht.|I don't understand.||||Italian: Non capisco.
+Noch einmal, bitte.|One more time, please.||||
+Wie viel kostet das?|How much is this?||||
+Ich hätte gern einen Kaffee.|I would like a coffee.||||Italian: Vorrei un caffè.
+Entschuldigung!|Excuse me! / Sorry!||||
+Danke schön!|Thank you very much!||||
+Bitte schön!|You're welcome! / Here you go.||||
+Tschüss!|Bye!||||`],
+['Pack 2: Introductions','introductions',`Ich heiße Klevin.|My name is Klevin.||||ß sounds like ss.
+Wie heißt du?|What is your name?||||
+Ich komme aus Italien.|I come from Italy.||||aus = from (origin). Italian: vengo dall'Italia.
+Woher kommst du?|Where are you from?||||
+Ich wohne in Maastricht.|I live in Maastricht.||||
+Wo wohnst du?|Where do you live?||||
+Ich bin Student.|I am a student.||||
+Ich lerne Deutsch.|I am learning German.||||
+Sprichst du Englisch?|Do you speak English?||||
+Freut mich!|Nice to meet you!||||`],
+['Pack 3: Shopping and food','shopping',`Ich möchte ein Brot, bitte.|I would like a bread, please.||||
+Haben Sie Milch?|Do you have milk?||||
+Ich nehme das.|I'll take this.||||
+Kann ich mit Karte zahlen?|Can I pay by card?||||
+Das ist zu teuer.|That is too expensive.||||
+Wo ist die Toilette?|Where is the toilet?||||
+Die Rechnung, bitte.|The bill, please.||||
+Ich suche den Supermarkt.|I am looking for the supermarket.||||`],
+['Pack 4: Nouns with articles','nouns',`Supermarkt|supermarket|der|Ich gehe zum Supermarkt.|I am going to the supermarket.|
+Bäckerei|bakery|die|Die Bäckerei ist neu.|The bakery is new.|
+Brot|bread|das|Das Brot ist frisch.|The bread is fresh.|
+Bahnhof|train station|der|Wo ist der Bahnhof?|Where is the train station?|
+Straße|street|die|Die Straße ist lang.|The street is long.|
+Wasser|water|das|Ich trinke Wasser.|I drink water.|
+Kaffee|coffee|der|Der Kaffee ist heiß.|The coffee is hot.|
+Milch|milk|die|Die Milch ist kalt.|The milk is cold.|
+Bruder|brother|der|Ich habe einen Bruder.|I have a brother.|After haben: der becomes den/einen.
+Schwester|sister|die|Ich habe zwei Schwestern.|I have two sisters.|Plural: die Schwestern.`]
+],
+nl:[
+['Pack 1: Everyday basics','basics',`Goedemorgen!|Good morning!||||
+Hoe gaat het?|How are you?||||
+Goed, dank je. En jij?|Fine, thanks. And you?||||
+Ik begrijp het niet.|I don't understand.||||
+Nog een keer, alsjeblieft.|One more time, please.||||
+Hoeveel kost dit?|How much is this?||||
+Ik wil graag een koffie.|I would like a coffee.||||
+Tot ziens!|Goodbye!||||`]
+]};
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const today=()=>new Date().toLocaleDateString('en-CA');
+const uid=()=>Math.random().toString(36).slice(2,10);
+
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
+S=S||{lang:'de',cards:[],log:[],gate:true,seeded:{}};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const mk=(lg,o)=>({id:uid(),lg,t:o.t,e:o.e,a:o.a||'',ex:o.ex||'',exe:o.exe||'',note:o.note||'',topic:o.topic||'',pack:o.pack||'My phrases',box:0,due:0,seen:0,ok:0,bad:0});
+function seed(){
+  for(const lg in SEED){
+    if(S.seeded[lg])continue;S.seeded[lg]=1;
+    SEED[lg].forEach(([pack,topic,rows])=>rows.split('\n').forEach(r=>{
+      if(!r.trim())return;const [t,e,a,ex,exe,note]=r.split('|');
+      S.cards.push(mk(lg,{t:t.trim(),e,a,ex,exe,note:(note||'').trim(),topic,pack}));
+    }));
+  }
+  save();
+}
+seed();
+
+const full=c=>(c.a?c.a+' ':'')+c.t;
+const byId=id=>S.cards.find(c=>c.id===id);
+const lc=()=>S.cards.filter(c=>c.lg===S.lang);
+function packs(){
+  const names=[];lc().forEach(c=>{if(!names.includes(c.pack))names.push(c.pack)});
+  const out=names.map(n=>{const cs=lc().filter(c=>c.pack===n);const m=cs.filter(c=>c.box>=MASTER_BOX).length;return{name:n,cs,total:cs.length,mast:m,pct:cs.length?Math.round(100*m/cs.length):0,locked:false}});
+  out.forEach((p,i)=>{p.locked=S.gate&&i>0&&out[i-1].pct<80});
+  return out;
+}
+const started=c=>c.seen||c.ok||c.bad;
+function dueQ(){
+  const open=packs().filter(p=>!p.locked).map(p=>p.name);
+  return lc().filter(c=>open.includes(c.pack)&&started(c)&&c.due<=Date.now());
+}
+
+// answer checking
+const norm=s=>s.toLowerCase().replace(/[’`´]/g,"'").replace(/[.!?,;:¡¿"]/g,'').replace(/\s+/g,' ').trim();
+const fold=s=>norm(s).replace(/ß/g,'ss').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/'/g,'');
+const foldE=s=>norm(s).replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/'/g,'');
+function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let p=[...Array(n+1).keys()];for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[n]}
+function judge(c,a){
+  const t=full(c);if(norm(a)===norm(t))return'ok';
+  const A=[fold(a),foldE(a)],T=[fold(t),foldE(t)];
+  if(A.some(x=>T.includes(x)))return'acc';
+  if(A.some(x=>T.some(y=>lev(x,y)<=1)))return'near';
+  return'bad';
+}
+function grade(c,good){
+  c.seen=1;
+  if(good){c.ok++;if(c.due<=Date.now()){c.box=Math.min(5,c.box+1);c.due=Date.now()+GAPS[c.box]*DAY}}
+  else{c.bad++;c.box=0;c.due=0}
+}
+function speak(text){
+  try{const u=new SpeechSynthesisUtterance(text);u.lang=LANGS[S.lang].tts;u.rate=.85;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}
+}
+
+// CSV
+function parseCSV(t){
+  const rows=[];let r=[],f='',q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){if(ch==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=ch}
+    else if(ch==='"')q=true;
+    else if(ch===','){r.push(f);f=''}
+    else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&t[i+1]==='\n')i++;r.push(f);f='';if(r.some(x=>x.trim()))rows.push(r);r=[]}
+    else f+=ch;
+  }
+  r.push(f);if(r.some(x=>x.trim()))rows.push(r);return rows;
+}
+const qs=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+function exportCSV(){
+  const n=LANGS[S.lang].n.toLowerCase();
+  const head=[n,'english','article','example_'+S.lang,'example_en','topic','pack','note'].join(',');
+  const body=lc().map(c=>[c.t,c.e,c.a,c.ex,c.exe,c.topic,c.pack,c.note].map(qs).join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+head+'\n'+body],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='vocabulary_'+n+'.csv';document.body.appendChild(a);a.click();a.remove();
+}
+function importCSV(text){
+  const rows=parseCSV(text);if(!rows.length)return 0;
+  if((rows[0][1]||'').trim().toLowerCase()==='english')rows.shift();
+  let added=0;
+  rows.forEach(r=>{
+    const [t,e,a,ex,exe,topic,pack,note]=r.map(x=>(x||'').trim());
+    if(!t||!e)return;
+    if(lc().some(c=>c.t===t&&c.e===e))return;
+    S.cards.push(mk(S.lang,{t,e,a,ex,exe,topic,note,pack:pack||'Imported: '+(topic||'general')}));added++;
+  });
+  save();return added;
+}
+
+// progress card
+function cardText(){
+  const lg=S.lang,d=today(),ps=packs();
+  const days=new Set(S.log.filter(x=>x.lg===lg).map(x=>x.d));days.add(d);
+  const tl=S.log.filter(x=>x.lg===lg&&x.d===d);
+  const covered=[...new Set(tl.map(x=>x.pack||'Due cards'))].join(', ')||'none yet';
+  const mast=ps.filter(p=>p.pct>=80).map(p=>p.name).join('; ')||'none yet';
+  const mc=lc().filter(c=>c.box>=MASTER_BOX).length;
+  const weak=lc().filter(c=>c.bad>c.ok).sort((a,b)=>(b.bad-b.ok)-(a.bad-a.ok)).slice(0,5).map(full).join('; ')||'none';
+  const nx=ps.find(p=>!p.locked&&p.pct<80);
+  const due=dueQ().length;
+  return `PROGRESS CARD\nDate: ${d}\nLanguage: ${LANGS[lg].n}\nLevel: A1\nSession #: ${days.size}\nCovered: ${covered}\nMastered: ${mast} (${mc}/${lc().length} phrases)\nWeak spots: ${weak}\nNext session: ${nx?nx.name:'add a new pack'}\nHomework: practice your due cards daily (${due} now), read the next pack aloud twice`;
+}
+
+// views
+let V={name:'home'};
+const app=$('#app');
+function render(){
+  app.innerHTML=({home:vHome,learn:vLearn,run:vRun,done:vDone,list:vList,add:vAdd,io:vIO,card:vCard})[V.name]();
+  window.scrollTo(0,0);
+  const i=$('#in');if(i){i.focus();if(V.draft)i.value=V.draft}
+  const nb=$('#nextbtn');if(nb)nb.focus();
+}
+function vHome(){
+  const ps=packs(),due=dueQ().length;
+  let h=`<h1>Phrase Trainer</h1><div class="chips">${Object.keys(LANGS).map(k=>`<button class="chip ${k===S.lang?'on':''}" data-a="lang" data-v="${k}">${LANGS[k].n}</button>`).join('')}</div>`;
+  h+=`<div class="card"><b>${due}</b> card${due===1?'':'s'} due today<div class="row"><button class="pri" data-a="run" data-mode="practice" data-pack="" ${due?'':'disabled'}>Practice due cards</button></div></div>`;
+  h+=`<h3>Packs</h3>`;
+  if(!ps.length)h+=`<div class="card mut">No phrases yet for ${LANGS[S.lang].n}. Add phrases or import a CSV below.</div>`;
+  ps.forEach((p,i)=>{
+    h+=`<div class="card"><div class="top"><b>${p.locked?'🔒 ':''}${esc(p.name)}</b><span class="mut">${p.pct}%</span></div><div class="bar"><i style="width:${p.pct}%"></i></div><div class="mut">${p.mast}/${p.total} mastered${p.locked?' · reach 80% on the previous pack to unlock':''}</div>
+    <div class="row"><button data-a="learn" data-pack="${i}" ${p.locked?'disabled':''}>Learn</button><button class="pri" data-a="run" data-mode="practice" data-pack="${i}" ${p.locked?'disabled':''}>Practice</button><button data-a="run" data-mode="quiz" data-pack="${i}" ${p.locked?'disabled':''}>Mini quiz</button><button class="ghost" data-a="list" data-pack="${i}">List</button></div></div>`;
+  });
+  h+=`<h3>Tools</h3><div class="row"><button data-a="add">Add phrase</button><button data-a="io">Import / Export CSV</button><button data-a="card">Progress Card</button></div>
+  <label><input type="checkbox" id="gate" data-a="gate" style="width:auto" ${S.gate?'checked':''}> Lock next pack until previous is 80% mastered</label>
+  <p class="mut">A phrase counts as mastered after 2 correct answers on different days.</p>`;
+  return h;
+}
+function vLearn(){
+  const p=packs()[V.pack],c=byId(V.ids[V.i]);
+  return `<div class="top"><button class="ghost" data-a="home">Back</button><span class="mut">${V.i+1}/${V.ids.length} · ${esc(p.name)}</span></div>
+  <div class="card big flash" data-a="flip"><div class="t">${esc(full(c))}</div><button class="ico" data-a="speak" data-id="${c.id}">🔊</button>
+  ${V.show?`<div class="ans">${esc(c.e)}</div>${c.note?`<div class="mut">${esc(c.note)}</div>`:''}${c.ex?`<div>${esc(c.ex)}<br><span class="mut">${esc(c.exe)}</span></div>`:''}`:`<div class="mut">Tap to show the meaning</div>`}</div>
+  <div class="row"><button data-a="prev" ${V.i?'':'disabled'}>Previous</button><button class="pri" data-a="lnext">${V.i<V.ids.length-1?'Next':'Finish'}</button></div>`;
+}
+function vRun(){
+  const c=byId(V.q[V.i]);
+  let h=`<div class="top"><button class="ghost" data-a="home">Quit</button><span class="mut">${Math.min(V.seen.size+(V.fb?0:1),V.total)}/${V.total} · ${V.mode==='quiz'?'Mini quiz':'Practice'}</span></div>
+  <div class="card big"><div class="mut">${esc(V.pack||'Due cards')}</div><h2>${esc(c.e)}</h2>${c.a?'<div class="mut">Nouns: include the article</div>':''}`;
+  if(!V.fb){
+    h+=`<form id="ans" autocomplete="off"><input id="in" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Type it in ${LANGS[S.lang].n}"><div class="row"><button class="pri">Check</button><button type="button" class="ghost" data-a="hint">Hint</button><button type="button" class="ghost" data-a="idk">I don't know</button></div></form>${V.hint?`<div class="mut" style="margin-top:8px">Starts with: <b>${esc(full(c).slice(0,V.hint))}</b></div>`:''}`;
+  }else{
+    const m={ok:['Correct','ok'],acc:['Correct (watch accents and umlauts)','ok'],near:['Almost, check the spelling','bad'],bad:['Not quite','bad']}[V.fb.r];
+    const last=V.i>=V.q.length-1;
+    h+=`<div class="fb ${m[1]}"><b>${m[0]}</b><div class="ans">${esc(full(c))} <button class="ico" data-a="speak" data-id="${c.id}">🔊</button></div>${V.fb.you?`<div class="mut">You wrote: ${esc(V.fb.you)}</div>`:''}${c.note?`<div class="mut">${esc(c.note)}</div>`:''}${c.ex?`<div class="mut">${esc(c.ex)}<br>${esc(c.exe)}</div>`:''}</div><button id="nextbtn" class="pri" data-a="nextq">${last?'Finish':'Next'}</button>`;
+  }
+  return h+'</div>';
+}
+function vDone(){
+  const R=V.res,pct=R.total?Math.round(100*R.right/R.total):0;
+  let h=`<h1>${R.mode==='quiz'?'Mini quiz':'Practice'} finished</h1><div class="card big"><h2>${R.right}/${R.total} (${pct}%)</h2>`;
+  if(R.mode==='quiz')h+=pct>=80?`<div class="fb ok"><b>Passed.</b> You can move on.</div>`:`<div class="fb bad"><b>Below 80%.</b> Practice this pack again before moving on.</div>`;
+  if(R.wrong.length)h+=`<h3>Review these</h3><div class="list">${R.wrong.map(id=>{const c=byId(id);return c?`<div class="it"><span>${esc(full(c))}</span><span class="mut">${esc(c.e)}</span></div>`:''}).join('')}</div>`;
+  return h+`</div><div class="row"><button class="pri" data-a="home">Home</button><button data-a="card">Progress Card</button></div>`;
+}
+function vList(){
+  const p=packs()[V.pack];
+  return `<div class="top"><button class="ghost" data-a="home">Back</button><span class="mut">${esc(p.name)}</span></div><div class="card list">${p.cs.map(c=>`<div class="it"><span><b>${esc(full(c))}</b> <button class="ico" data-a="speak" data-id="${c.id}">🔊</button><br><span class="mut">${esc(c.e)}</span></span><span><span class="mut">${c.box>=MASTER_BOX?'✓':''}</span> <button class="ico" data-a="del" data-id="${c.id}">✕</button></span></div>`).join('')}</div>`;
+}
+function vAdd(){
+  const ps=packs();
+  return `<div class="top"><button class="ghost" data-a="home">Back</button><span class="mut">Add phrase (${LANGS[S.lang].n})</span></div>
+  <form id="addf" class="card"><label>Phrase or word</label><input name="t" required><label>English</label><input name="e" required><label>Article (nouns only: der, die, das...)</label><input name="a"><label>Example sentence</label><input name="ex"><label>Example in English</label><input name="exe"><label>Note (Italian comparison, tip)</label><input name="note"><label>Topic</label><input name="topic" placeholder="e.g. food">
+  <label>Pack</label><select name="pack">${ps.map(p=>`<option>${esc(p.name)}</option>`).join('')}<option value="__new">New pack...</option></select><input name="newpack" placeholder="New pack name (if selected above)">
+  <div class="row"><button class="pri">Save</button></div></form>`;
+}
+function vIO(){
+  return `<div class="top"><button class="ghost" data-a="home">Back</button><span class="mut">CSV (${LANGS[S.lang].n})</span></div>
+  <div class="card"><b>Export</b><div class="mut">Columns: ${LANGS[S.lang].n.toLowerCase()},english,article,example_${S.lang},example_en,topic,pack,note</div><div class="row"><button class="pri" data-a="export">Download CSV</button></div></div>
+  <div class="card"><b>Import</b><div class="mut">Paste CSV rows or choose a file. Same column order. Duplicates are skipped.</div><textarea id="csv" placeholder="Guten Morgen!,Good morning!,,,,basics"></textarea><div class="row"><button class="pri" data-a="importText">Import pasted text</button><input id="file" type="file" accept=".csv,text/csv,text/plain" style="width:auto"></div><div id="msg" class="mut"></div></div>`;
+}
+function vCard(){
+  return `<div class="top"><button class="ghost" data-a="home">Back</button><span class="mut">Progress Card</span></div><div class="card"><div class="mut">Edit the level or homework if you want, then copy it and paste it to your tutor next time.</div><textarea id="pc" style="min-height:260px">${esc(cardText())}</textarea><div class="row"><button class="pri" data-a="copy">Copy</button></div><div id="msg" class="mut"></div></div>`;
+}
+
+// run engine
+function startRun(mode,pi){
+  const ps=packs(),p=pi===''||pi==null?null:ps[+pi];let ids;
+  if(!p)ids=shuffle(dueQ()).slice(0,10).map(c=>c.id);
+  else if(mode==='quiz')ids=shuffle(p.cs).slice(0,5).map(c=>c.id);
+  else{const due=p.cs.filter(c=>c.due<=Date.now());ids=shuffle(due.length?due:p.cs).slice(0,10).map(c=>c.id)}
+  if(!ids.length)return;
+  V={name:'run',mode,pack:p?p.name:'',q:ids,i:0,total:ids.length,right:0,wrong:[],seen:new Set(),requeued:new Set(),fb:null,hint:0,draft:''};
+  render();
+}
+function answer(txt,idk){
+  const c=byId(V.q[V.i]);const r=idk?'bad':judge(c,txt);const good=r==='ok'||r==='acc';
+  grade(c,good);
+  if(!V.seen.has(c.id)){V.seen.add(c.id);if(good)V.right++;else V.wrong.push(c.id)}
+  if(!good&&V.mode==='practice'&&!V.requeued.has(c.id)){V.requeued.add(c.id);V.q.push(c.id)}
+  V.fb={r,you:idk?'':txt};save();render();
+}
+function nextQ(){
+  if(V.i>=V.q.length-1){
+    S.log.push({d:today(),lg:S.lang,pack:V.pack,mode:V.mode,sc:V.total?Math.round(100*V.right/V.total):0});save();
+    V={name:'done',res:{mode:V.mode,right:V.right,total:V.total,wrong:V.wrong}};
+  }else{V.i++;V.fb=null;V.hint=0;V.draft=''}
+  render();
+}
+
+// events
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  const a=b.dataset.a,d=b.dataset;
+  if(a==='gate'){S.gate=b.checked;save();return}
+  if(a==='lang'){S.lang=d.v;save();V={name:'home'};render()}
+  else if(a==='home'){V={name:'home'};render()}
+  else if(a==='run')startRun(d.mode,d.pack);
+  else if(a==='learn'){const p=packs()[+d.pack];V={name:'learn',pack:+d.pack,ids:p.cs.map(c=>c.id),i:0,show:false};render()}
+  else if(a==='flip'){V.show=!V.show;if(V.show){byId(V.ids[V.i]).seen=1;save()}render()}
+  else if(a==='lnext'){if(V.i<V.ids.length-1){V.i++;V.show=false;render()}else{V={name:'home'};render()}}
+  else if(a==='prev'){if(V.i){V.i--;V.show=false;render()}}
+  else if(a==='speak'){e.stopPropagation();const c=byId(d.id);if(c)speak(full(c))}
+  else if(a==='hint'){const c=byId(V.q[V.i]);V.draft=($('#in')||{}).value||'';V.hint=Math.min(full(c).length,(V.hint||0)+2);render()}
+  else if(a==='idk')answer('',true);
+  else if(a==='nextq')nextQ();
+  else if(a==='list'){V={name:'list',pack:+d.pack};render()}
+  else if(a==='del'){if(confirm('Delete this phrase?')){S.cards=S.cards.filter(c=>c.id!==d.id);save();render()}}
+  else if(a==='add'){V={name:'add'};render()}
+  else if(a==='io'){V={name:'io'};render()}
+  else if(a==='card'){V={name:'card'};render()}
+  else if(a==='export')exportCSV();
+  else if(a==='importText'){const n=importCSV($('#csv').value);$('#msg').textContent=n+' phrase'+(n===1?'':'s')+' imported.'}
+  else if(a==='copy'){const t=$('#pc');t.select();let ok=false;try{ok=document.execCommand('copy')}catch(x){}try{navigator.clipboard.writeText(t.value);ok=true}catch(x){}$('#msg').textContent=ok?'Copied.':'Select the text and copy it manually.'}
+});
+document.addEventListener('submit',e=>{
+  e.preventDefault();
+  if(e.target.id==='ans'){answer($('#in').value.trim(),false)}
+  else if(e.target.id==='addf'){
+    const f=new FormData(e.target);let pack=f.get('pack');if(pack==='__new')pack=(f.get('newpack')||'').trim()||'My phrases';
+    S.cards.push(mk(S.lang,{t:f.get('t').trim(),e:f.get('e').trim(),a:f.get('a').trim(),ex:f.get('ex').trim(),exe:f.get('exe').trim(),note:f.get('note').trim(),topic:f.get('topic').trim(),pack}));
+    save();V={name:'home'};render();
+  }
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='file'&&e.target.files[0]){
+    const r=new FileReader();r.onload=()=>{const n=importCSV(String(r.result));$('#msg').textContent=n+' phrase'+(n===1?'':'s')+' imported.'};r.readAsText(e.target.files[0]);
+  }
+});
+render();
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+})();
+</script>
+</body>
+</html>
