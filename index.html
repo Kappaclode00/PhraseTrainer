@@ -45,7 +45,7 @@ label{font-size:.85rem;color:var(--mut);display:block;margin-top:8px}
 .list .it:last-child{border:0}
 .lock{color:var(--mut)}
 a{color:var(--acc)}
-.vid{position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;margin:10px 0}
+.hud{display:flex;gap:8px;align-items:center;margin:6px 0 10px}.hud .pill{background:#fff3e0;border-radius:999px;padding:6px 12px;font-weight:700}.goal{margin:6px 0}.goal .bar{height:10px}.wd{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee}.vid{position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;margin:10px 0}
 .vid iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
 .opt{display:block;width:100%;text-align:left;margin:8px 0}
 .opt.ok{border-color:var(--ok);background:var(--okbg)}
@@ -130,9 +130,9 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
 S=S||{lang:'de',cards:[],log:[],gate:true,seeded:{},lessons:{}};
-S.lessons=S.lessons||{};
+S.lessons=S.lessons||{};S.xp=S.xp||0;S.goal=S.goal||20;S.str=S.str||{last:'',n:0,best:0};S.dxp=S.dxp||{d:'',x:0};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
-const mk=(lg,o)=>({id:uid(),lg,t:o.t,e:o.e,a:o.a||'',ex:o.ex||'',exe:o.exe||'',note:o.note||'',topic:o.topic||'',pack:o.pack||'My phrases',ls:o.ls||0,box:0,due:0,seen:0,ok:0,bad:0});
+const mk=(lg,o)=>({id:uid(),lg,t:o.t,e:o.e,a:o.a||'',ex:o.ex||'',exe:o.exe||'',note:o.note||'',topic:o.topic||'',pack:o.pack||'My phrases',ls:o.ls||0,clip:o.clip||null,box:0,due:0,seen:0,ok:0,bad:0});
 function seed(){
   for(const lg in SEED){
     if(S.seeded[lg])continue;S.seeded[lg]=1;
@@ -237,10 +237,24 @@ function render(){
   const i=$('#in');if(i){i.focus();if(V.draft)i.value=V.draft}
   const nb=$('#nextbtn');if(nb)nb.focus();
 }
+const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toLocaleDateString('en-CA')};
+function award(x){
+  const d=today();if(S.dxp.d!==d)S.dxp={d,x:0};
+  S.dxp.x+=x;S.xp+=x;
+  if(S.dxp.x>=S.goal&&S.str.last!==d){S.str.n=S.str.last===yest()?S.str.n+1:1;S.str.last=d;S.str.best=Math.max(S.str.best,S.str.n)}
+  save();
+}
+function hud(){
+  const d=today(),x=S.dxp.d===d?S.dxp.x:0,pct=Math.min(100,Math.round(100*x/S.goal));
+  const alive=S.str.last===d||S.str.last===yest(),n=alive?S.str.n:0,met=S.str.last===d;
+  return `<div class="hud"><span class="pill">🔥 ${n}</span><span class="pill">⭐ ${S.xp} XP</span><span class="mut">Best streak ${S.str.best}</span></div>
+  <div class="card goal"><div class="top"><b>Daily goal</b><span class="mut">${x}/${S.goal} XP</span></div><div class="bar"><i style="width:${pct}%"></i></div>
+  <div class="mut">${met?'Goal reached. Streak safe for today.':(n?`Earn ${S.goal-x} more XP today to keep your ${n}-day streak.`:`Earn ${S.goal-x} XP today to start a streak.`)}</div></div>`;
+}
 function vHome(){
   const ps=packs(),due=dueQ().length;
   let h=`<h1>Phrase Trainer</h1><div class="chips">${Object.keys(LANGS).map(k=>`<button class="chip ${k===S.lang?'on':''}" data-a="lang" data-v="${k}">${LANGS[k].n}</button>`).join('')}</div>`;
-  h+=courseCard();
+  h+=hud()+courseCard();
   h+=`<div class="card"><b>${due}</b> card${due===1?'':'s'} due today<div class="row"><button class="pri" data-a="run" data-mode="practice" data-pack="" ${due?'':'disabled'}>Practice due cards</button></div></div>`;
   h+=`<h3>Packs</h3>`;
   if(!ps.length)h+=`<div class="card mut">No phrases yet for ${LANGS[S.lang].n}. Add phrases or import a CSV below.</div>`;
@@ -319,7 +333,7 @@ function answer(txt,idk){
 }
 function nextQ(){
   if(V.i>=V.q.length-1){
-    S.log.push({d:today(),lg:S.lang,pack:V.pack,mode:V.mode,sc:V.total?Math.round(100*V.right/V.total):0});save();
+    S.log.push({d:today(),lg:S.lang,pack:V.pack,mode:V.mode,sc:V.total?Math.round(100*V.right/V.total):0});award(V.right*2+(V.total&&V.right/V.total>=0.8?10:0));
     V={name:'done',res:{mode:V.mode,right:V.right,total:V.total,wrong:V.wrong,ret:V.ret}};
   }else{V.i++;V.fb=null;V.hint=0;V.draft=''}
   render();
@@ -338,8 +352,9 @@ function courseCard(){
 function ensureLessonCards(n){
   const L=LES()[n-1];if(!L)return [];
   const pack='Lesson '+String(n).padStart(2,'0');
-  L.cards.forEach(([t,e,a,note])=>{
-    if(!S.cards.some(c=>c.ls===n&&c.t===t&&c.e===e))S.cards.push(mk('de',{t,e,a:a||'',note:note||'',topic:'lesson',pack,ls:n}));
+  L.cards.forEach(([t,e,a,note,clip])=>{
+    const ex=S.cards.find(c=>c.ls===n&&c.t===t&&c.e===e);
+    if(ex)ex.clip=clip||null;else S.cards.push(mk('de',{t,e,a:a||'',note:note||'',topic:'lesson',pack,ls:n,clip:clip||null}));
   });
   save();
   return S.cards.filter(c=>c.ls===n);
@@ -353,6 +368,14 @@ function vCourse(){
   });
   return h+'</div>';
 }
+const clipUrl=(id,c)=>`https://www.youtube-nocookie.com/embed/${id}?start=${c[0]}&end=${c[1]}&autoplay=1&rel=0&playsinline=1`;
+const clipBox=(n,c)=>`<div class="vid"><iframe src="${clipUrl(LES()[n-1].id,c)}" title="clip" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+function wordList(L){
+  const cs=L.cards.map((x,i)=>({x,i})).filter(o=>o.x[4]);
+  if(!cs.length)return '';
+  const open=V.clip>=0&&V.clip!=null?L.cards[V.clip]:null;
+  return `<h3>Words with video clips</h3><div class="card">${open&&open[4]?clipBox(L.n,open[4]):''}${cs.map(o=>`<div class="wd"><span><b>${esc(o.x[2]?o.x[2]+' '+o.x[0]:o.x[0])}</b><br><span class="mut">${esc(o.x[1])}</span></span><button data-a="wclip" data-i="${o.i}">${V.clip===o.i?'■ Close':'▶ Clip'}</button></div>`).join('')}</div>`;
+}
 function vLesson(){
   const L=LES()[V.n-1],st=S.lessons[L.n]||{},tot=LES().length;
   return `<div class="top"><button class="ghost" data-a="course">Course</button><span class="mut">Lesson ${L.n}/${tot}</span></div>
@@ -360,6 +383,7 @@ function vLesson(){
   <div class="vid"><iframe src="https://www.youtube-nocookie.com/embed/${L.id}?rel=0&playsinline=1" title="${esc(L.en)}" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
   <div class="mut"><a href="https://www.youtube.com/watch?v=${L.id}" target="_blank" rel="noopener">Open on YouTube</a></div>
   <h3>Key points</h3><div class="card"><ul class="pts">${L.notes.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+  ${wordList(L)}
   <div class="row"><button data-a="lflash">Flashcards (${L.cards.length})</button><button data-a="lquiz">Quiz</button><button class="pri" data-a="lprac">Type practice</button></div>
   <div class="row"><button id="donebtn" data-a="ldone">${st.done?'✓ Done (tap to undo)':'Mark as done'}</button>${st.quiz!=null?`<span class="mut">Best quiz: ${st.quiz}%</span>`:''}</div>
   <div class="row"><button data-a="lesson" data-n="${L.n-1}" ${L.n>1?'':'disabled'}>Previous</button><button data-a="lesson" data-n="${L.n+1}" ${L.n<tot?'':'disabled'}>Next lesson</button></div>`;
@@ -368,6 +392,7 @@ function vFlash(){
   const c=byId(V.ids[V.i]),last=V.i>=V.ids.length-1;
   return `<div class="top"><button class="ghost" data-a="back">Back</button><span class="mut">${V.i+1}/${V.ids.length}</span></div>
   <div class="card big flash" data-a="fflip"><div class="t">${esc(full(c))}</div><button class="ico" data-a="speak" data-id="${c.id}">🔊</button>${V.show?`<div class="ans">${esc(c.e)}</div>${c.note?`<div class="mut">${esc(c.note)}</div>`:''}`:'<div class="mut">Tap to show the meaning</div>'}</div>
+  ${c.clip?(V.clipOn?clipBox(c.ls,c.clip):`<div class="row"><button data-a="fclip">▶ Watch this word in the video</button></div>`):''}
   <div class="row"><button data-a="fprev" ${V.i?'':'disabled'}>Previous</button><button data-a="fshuf">Shuffle</button><button class="pri" data-a="fnext">${last?'Finish':'Next'}</button></div>`;
 }
 function startMcq(n){
@@ -401,19 +426,21 @@ document.addEventListener('click',e=>{
   if(a==='gate'){S.gate=b.checked;save();return}
   if(a==='course'){V={name:'course'};render()}
   else if(a==='back'){const r=V.ret||(V.res&&V.res.ret);V=r||{name:'home'};render()}
-  else if(a==='lesson'){const n=+d.n;if(n>=1&&n<=LES().length){S.lastLesson=n;save();V={name:'lesson',n};render()}}
-  else if(a==='ldone'){const s=lst(V.n);s.done=!s.done;save();b.textContent=s.done?'✓ Done (tap to undo)':'Mark as done'}
+  else if(a==='lesson'){const n=+d.n;if(n>=1&&n<=LES().length){S.lastLesson=n;save();V={name:'lesson',n,clip:-1};render()}}
+  else if(a==='ldone'){const s=lst(V.n);s.done=!s.done;if(s.done&&!s.xpd){s.xpd=1;award(10)}save();b.textContent=s.done?'✓ Done (tap to undo)':'Mark as done'}
   else if(a==='lflash'){const ids=ensureLessonCards(V.n).map(c=>c.id);V={name:'flash',ids,i:0,show:false,ret:{name:'lesson',n:V.n}};render()}
-  else if(a==='fflip'){V.show=!V.show;render()}
-  else if(a==='fnext'){if(V.i<V.ids.length-1){V.i++;V.show=false;render()}else{const r=V.ret;V=r||{name:'home'};render()}}
-  else if(a==='fprev'){if(V.i){V.i--;V.show=false;render()}}
+  else if(a==='fflip'){V.show=!V.show;V.clipOn=false;render()}
+  else if(a==='fclip'){V.clipOn=true;render()}
+  else if(a==='wclip'){V.clip=V.clip===+d.i?-1:+d.i;render()}
+  else if(a==='fnext'){if(V.i<V.ids.length-1){V.i++;V.show=false;V.clipOn=false;render()}else{award(5);const r=V.ret;V=r||{name:'home'};render()}}
+  else if(a==='fprev'){if(V.i){V.i--;V.show=false;V.clipOn=false;render()}}
   else if(a==='fshuf'){V.ids=shuffle(V.ids);V.i=0;V.show=false;render()}
   else if(a==='lprac'){const n=V.n,ids=shuffle(ensureLessonCards(n).map(c=>c.id)).slice(0,10);if(ids.length){V={name:'run',mode:'practice',pack:'Lesson '+n,q:ids,i:0,total:ids.length,right:0,wrong:[],seen:new Set(),requeued:new Set(),fb:null,hint:0,draft:'',ret:{name:'lesson',n}};render()}}
   else if(a==='lquiz')startMcq(V.n);
   else if(a==='mcqpick'){const Q=V.q[V.i];V.pick=+d.i;if(Q.opts[V.pick]===Q.ans)V.right++;else V.wrong.push(Q.id);render()}
   else if(a==='mcqnext'){
     if(V.i>=V.q.length-1){const pct=Math.round(100*V.right/V.q.length),s=lst(V.n);s.quiz=Math.max(s.quiz||0,pct);if(pct>=80&&s.done===undefined)s.done=false;
-      S.log.push({d:today(),lg:S.lang,pack:'Lesson '+V.n,mode:'quiz',sc:pct});save();
+      S.log.push({d:today(),lg:S.lang,pack:'Lesson '+V.n,mode:'quiz',sc:pct});award(V.right*2+(pct>=80?10:0));
       V={name:'done',res:{mode:'quiz',right:V.right,total:V.q.length,wrong:V.wrong,ret:V.ret}};render()}
     else{V.i++;V.pick=-1;render()}}
   else if(a==='lang'){S.lang=d.v;save();V={name:'home'};render()}
